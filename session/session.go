@@ -5,10 +5,10 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	octopus "real_time_forum/app"
+	"octopus"
 	"sync"
 
-	// octopus "octopus/context"
+	// octopus "octopus/Ctx"
 	"time"
 
 	"github.com/gofrs/uuid"
@@ -38,7 +38,7 @@ type Config struct {
 
 type starter struct {
 	session *session
-	Ctx     *octopus.Context
+	Ctx     *octopus.Ctx
 }
 
 type session struct {
@@ -136,7 +136,7 @@ func (s *session) UseDB(db *sql.DB) {
 	}
 }
 
-func (s *session) Start(c *octopus.Context) *starter {
+func (s *session) Start(c *octopus.Ctx) *starter {
 	s.tmp()
 	return &starter{session: s, Ctx: c}
 }
@@ -197,7 +197,7 @@ func (s *starter) Set(value uuid.UUID) error {
 		SameSite: c.SameSite,
 	}
 
-	http.SetCookie(s.Ctx.ResponseWriter, cookie)
+	http.SetCookie(s.Ctx.Response, cookie)
 	tmpdata.Store(id.String(), map[string]interface{}{
 		"key":    value,
 		"cookie": &storage{cookie: cookie, id: value},
@@ -322,8 +322,8 @@ func (s *starter) Delete() error {
 	c := session.Config
 	db := session.database
 	tmpdata := session.data
-	ctx := s.Ctx
-	cookie, err := ctx.Request.Cookie(c.CookieName)
+	Ctx := s.Ctx
+	cookie, err := Ctx.Request.Cookie(c.CookieName)
 	if err != nil {
 		// Le cookie n'existe pas
 		return err
@@ -351,7 +351,7 @@ func (s *starter) Delete() error {
 		}
 	}
 	// Supprimez le cookie de la session
-	http.SetCookie(ctx.ResponseWriter, &http.Cookie{
+	http.SetCookie(Ctx.Response, &http.Cookie{
 		Name:    c.CookieName,
 		Value:   "",
 		Secure:  c.Secure,

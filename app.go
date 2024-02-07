@@ -11,8 +11,8 @@ import (
 	// _ "github.com/mattn/go-sqlite3"
 )
 
-type HandlerFunc func(*Context)
-type ErrorHandlerFunc func(*Context, int)
+type HandlerFunc func(*Ctx)
+type ErrorHandlerFunc func(*Ctx, int)
 
 type Route struct {
 	pattern  string
@@ -20,84 +20,84 @@ type Route struct {
 	methods  map[string]bool
 }
 
-type App struct {
+type app struct {
 	routes []*Route
-	// if an handler gets an error and  the app.OnErrorCode is called and the error code and the handler are passed as parameters to the app.OnErrorCode
+	// if an handler gets an error and  the a .OnErrorCode is called and the error code and the handler are passed as parameters to the a .OnErrorCode
 	onErrorCode ErrorHandlerFunc
 }
 
-func New() *App {
-	return &App{}
+func New() *app {
+	return &app{}
 }
 
-func (app *App) handle(pattern string, handlers []HandlerFunc, methods ...string) {
+func (a *app) handle(pattern string, handlers []HandlerFunc, methods ...string) {
 	methodsMap := make(map[string]bool)
 	for _, method := range methods {
 		methodsMap[method] = true
 	}
 	route := &Route{pattern: pattern, handlers: handlers, methods: methodsMap}
-	app.routes = append(app.routes, route)
+	a.routes = append(a.routes, route)
 }
 
-func (app *App) Use(handlers ...HandlerFunc) {
-	for _, route := range app.routes {
+func (a *app) Use(handlers ...HandlerFunc) {
+	for _, route := range a.routes {
 		route.handlers = append(handlers, route.handlers...)
 	}
 }
 
-// func (app *App) OnErrorCode(errorCode int, handler ErrorHandlerFunc) {
-// 	app.onErrorCode = handler
+// func (a *app) OnErrorCode(errorCode int, handler ErrorHandlerFunc) {
+// 	a .onErrorCode = handler
 // }
 // ...
 
-func (app *App) Static(path string, dir string) {
+func (a *app) Static(path string, dir string) {
 	fileServer := http.FileServer(http.Dir(dir))
-	app.GET(path+"*", func(c *Context) {
-		http.StripPrefix(path, fileServer).ServeHTTP(c.ResponseWriter, c.Request)
+	a.GET(path+"*", func(c *Ctx) {
+		http.StripPrefix(path, fileServer).ServeHTTP(c.Response, c.Request)
 	})
 }
 
-func (app *App) GET(path string, handler ...HandlerFunc) {
-	app.handle(path, handler, "GET")
+func (a *app) GET(path string, handler ...HandlerFunc) {
+	a.handle(path, handler, "GET")
 }
 
-func (app *App) PUT(path string, handler ...HandlerFunc) {
-	app.handle(path, handler, "PUT")
+func (a *app) PUT(path string, handler ...HandlerFunc) {
+	a.handle(path, handler, "PUT")
 }
 
-func (app *App) POST(path string, handler ...HandlerFunc) {
-	app.handle(path, handler, "POST")
+func (a *app) POST(path string, handler ...HandlerFunc) {
+	a.handle(path, handler, "POST")
 }
 
-func (app *App) DELETE(path string, handler ...HandlerFunc) {
-	app.handle(path, handler, "DELETE")
+func (a *app) DELETE(path string, handler ...HandlerFunc) {
+	a.handle(path, handler, "DELETE")
 }
 
-func (app *App) PATCH(path string, handler ...HandlerFunc) {
-	app.handle(path, handler, "PATCH")
+func (a *app) PATCH(path string, handler ...HandlerFunc) {
+	a.handle(path, handler, "PATCH")
 }
 
-func (app *App) OPTIONS(path string, handler ...HandlerFunc) {
-	app.handle(path, handler, "OPTIONS")
+func (a *app) OPTIONS(path string, handler ...HandlerFunc) {
+	a.handle(path, handler, "OPTIONS")
 }
 
-func (app *App) HEAD(path string, handler ...HandlerFunc) {
-	app.handle(path, handler, "HEAD")
+func (a *app) HEAD(path string, handler ...HandlerFunc) {
+	a.handle(path, handler, "HEAD")
 }
 
-func (app *App) Any(path string, handler ...HandlerFunc) {
-	app.handle(path, handler, "GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS", "HEAD")
+func (a *app) Any(path string, handler ...HandlerFunc) {
+	a.handle(path, handler, "GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS", "HEAD")
 }
 
-func (app *App) OnErrorCode()
+// func (a *app) OnErrorCode()
 
-func (app *App) NotAllowed(c *Context) {
-	http.Error(c.ResponseWriter, "405 Method not allowed", http.StatusMethodNotAllowed)
+func (a *app) NotAllowed(c *Ctx) {
+	http.Error(c.Response, "405 Method not allowed", http.StatusMethodNotAllowed)
 }
 
-func (app *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	c := &Context{ResponseWriter: w, Request: r}
-	for _, route := range app.routes {
+func (a *app) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	c := &Ctx{Response: w, Request: r}
+	for _, route := range a.routes {
 		if strings.HasSuffix(route.pattern, "*") {
 			if strings.HasPrefix(r.URL.Path, strings.TrimSuffix(route.pattern, "*")) {
 				if route.methods[r.Method] {
@@ -105,7 +105,7 @@ func (app *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 					c.Next()
 					return
 				} else {
-					app.NotAllowed(c)
+					a.NotAllowed(c)
 					return
 				}
 			}
@@ -116,14 +116,14 @@ func (app *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 					c.Next()
 					return
 				} else {
-					app.NotAllowed(c)
+					a.NotAllowed(c)
 					return
 				}
 			}
 		}
 	}
-	if app.onErrorCode != nil {
-		app.onErrorCode(c, http.StatusNotFound)
+	if a.onErrorCode != nil {
+		a.onErrorCode(c, http.StatusNotFound)
 	} else {
 		http.NotFound(w, r)
 	}
@@ -141,11 +141,11 @@ func checkServer(addr string) {
 	}
 }
 
-func (app *App) Run(addr string) error {
+func (a *app) Run(addr string) error {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		if err := http.ListenAndServe(addr, app); err != nil {
+		if err := http.ListenAndServe(addr, a); err != nil {
 			log.Fatal(err)
 		}
 	}()
