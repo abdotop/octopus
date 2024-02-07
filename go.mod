@@ -1,4 +1,4 @@
-module octopus
+module github.com/abdotop/Octopus
 
 go 1.21.4
 
