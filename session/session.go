@@ -5,8 +5,9 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"octopus"
 	"sync"
+
+	octopus "github.com/abdotop/Octopus"
 
 	// octopus "octopus/Ctx"
 	"time"
