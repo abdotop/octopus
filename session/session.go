@@ -7,7 +7,7 @@ import (
 	"net/http"
 	"sync"
 
-	octopus "github.com/abdotop/Octopus"
+	octopus "github.com/abdotop/octopus"
 
 	// octopus "octopus/Ctx"
 	"time"
