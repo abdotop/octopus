@@ -96,8 +96,8 @@ func (a *App) NotAllowed(c *Ctx) {
 }
 
 func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	c := &Ctx{Response: w, Request: r, handlers: nil, index: 0}
-	// ...}
+	c := &Ctx{Response: w, Request: r, handlers: nil, index: 0, Values: map[any]any{}}
+
 	for _, route := range a.routes {
 		if strings.HasSuffix(route.pattern, "*") {
 			if strings.HasPrefix(r.URL.Path, strings.TrimSuffix(route.pattern, "*")) {
