@@ -1,7 +1,7 @@
 package octopus
 
-// octopus "real_time_forum/app"
+// octopus "real_time_forum/App"
 
-func (a *app) WS(path string, handler ...HandlerFunc) {
+func (a *App) WS(path string, handler ...HandlerFunc) {
 	a.handle(path, handler, "GET")
 }

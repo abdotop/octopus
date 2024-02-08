@@ -18,8 +18,19 @@ func (c *Ctx) BodyParser(out interface{}) error {
 	return json.NewDecoder(c.Request.Body).Decode(&out)
 }
 
+func (c *Ctx) Get(key string, defaultValue ...string) string {
+	value := c.Request.Header.Get(key)
+	if value == "" {
+		if len(defaultValue) > 0 {
+			return defaultValue[0]
+		}
+		return ""
+	}
+	return value
+}
+
 func (c *Ctx) JSON(data interface{}) error {
-	c.Response.Header().Set("Content-Type", "application/json")
+	c.Response.Header().Set("Content-Type", "Application/json")
 	return json.NewEncoder(c.Response).Encode(data)
 }
 

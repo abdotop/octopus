@@ -121,7 +121,7 @@ func (s *session) tmp() {
 			}
 		}()
 
-		// Attendez que l'application se termine.
+		// Attendez que l'Application se termine.
 		time.Sleep(30 * time.Minute)
 		close(quit)
 	}()

@@ -2,7 +2,7 @@
 
 ## Introduction
 
-Octopus is a lightweight, efficient web framework designed for building scalable web applications. It provides a simple, yet powerful way to create web services and applications.
+Octopus is a lightweight, efficient web framework designed for building scalable web Applications. It provides a simple, yet powerful way to create web services and Applications.
 
 ## Features
 
