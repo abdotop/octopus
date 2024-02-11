@@ -8,16 +8,25 @@ import (
 	"github.com/abdotop/octopus"
 )
 
+// Config defines the config for CORS middleware.
 type Config struct {
-	AllowedOrigins   []string
-	AllowedMethods   []string
-	AllowedHeaders   []string
+	// allow origin
+	AllowedOrigins []string
+	// allow methods
+	AllowedMethods []string
+	// allow headers
+	AllowedHeaders []string
+	// allow credentials
 	AllowCredentials bool
-	ExposedHeaders   []string
-	MaxAge           int
+	// expose headers
+	ExposedHeaders []string
+	// max age
+	MaxAge int
 }
 
-func New(config Config) octopus.HandlerFunc {
+// New returns a new CORS middleware.
+func New(config Config) octopus.Handler {
+	// Defaults for config
 	if len(config.AllowedOrigins) == 0 {
 		config.AllowedOrigins = []string{"*"}
 	}
@@ -34,6 +43,7 @@ func New(config Config) octopus.HandlerFunc {
 		config.MaxAge = 86400 // 24 hours
 	}
 
+	// return middleware octopus handler func with config
 	return func(c *octopus.Ctx) {
 		c.Response.Header().Set("Access-Control-Allow-Origin", strings.Join(config.AllowedOrigins, ","))
 		c.Response.Header().Set("Access-Control-Allow-Methods", strings.Join(config.AllowedMethods, ","))

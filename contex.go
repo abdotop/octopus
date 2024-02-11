@@ -10,7 +10,7 @@ import (
 type Ctx struct {
 	Response http.ResponseWriter
 	Request  *http.Request
-	handlers []HandlerFunc
+	handlers []Handler
 	index    int
 	Values   map[any]any
 	Context  context.Context

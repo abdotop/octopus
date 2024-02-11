@@ -11,27 +11,27 @@ import (
 	// _ "github.com/mattn/go-sqlite3"
 )
 
-type HandlerFunc func(*Ctx)
-type ErrorHandlerFunc func(*Ctx, int)
+type Handler func(*Ctx)
+type ErrorHandler func(*Ctx, int)
 
 type Route struct {
 	pattern  string
-	handlers []HandlerFunc
+	handlers []Handler
 	methods  map[string]bool
 }
 
 type App struct {
 	routes           []*Route
-	globalMiddleware []HandlerFunc
+	globalMiddleware []Handler
 	// if an handler gets an error and  the a .OnErrorCode is called and the error code and the handler are passed as parameters to the a .OnErrorCode
-	onErrorCode ErrorHandlerFunc
+	onErrorCode ErrorHandler
 }
 
 func New() *App {
 	return &App{}
 }
 
-func (a *App) handle(pattern string, handlers []HandlerFunc, methods ...string) {
+func (a *App) handle(pattern string, handlers []Handler, methods ...string) {
 	methodsMap := make(map[string]bool)
 	for _, method := range methods {
 		methodsMap[method] = true
@@ -41,16 +41,12 @@ func (a *App) handle(pattern string, handlers []HandlerFunc, methods ...string) 
 	a.routes = append(a.routes, route)
 }
 
-func (a *App) Use(handlers ...HandlerFunc) {
-	for _, route := range a.routes {
-		route.handlers = append(handlers, route.handlers...)
+func (a *App) Mount(path string, app *App) {
+	for _, route := range app.routes {
+		route.pattern = path + route.pattern
+		a.routes = append(a.routes, route)
 	}
 }
-
-// func (a *App) OnErrorCode(errorCode int, handler ErrorHandlerFunc) {
-// 	a .onErrorCode = handler
-// }
-// ...
 
 func (a *App) Static(path string, dir string) {
 	fileServer := http.FileServer(http.Dir(dir))
@@ -59,39 +55,45 @@ func (a *App) Static(path string, dir string) {
 	})
 }
 
-func (a *App) GET(path string, handler ...HandlerFunc) {
-	a.handle(path, handler, "GET")
+func (a *App) Use(handlers ...Handler) {
+	a.globalMiddleware = append(a.globalMiddleware, handlers...)
 }
 
-func (a *App) PUT(path string, handler ...HandlerFunc) {
-	a.handle(path, handler, "PUT")
-}
+// ===>  all allowed methods
 
-func (a *App) POST(path string, handler ...HandlerFunc) {
-	a.handle(path, handler, "POST")
-}
-
-func (a *App) DELETE(path string, handler ...HandlerFunc) {
+func (a *App) DELETE(path string, handler ...Handler) {
 	a.handle(path, handler, "DELETE")
 }
 
-func (a *App) PATCH(path string, handler ...HandlerFunc) {
+func (a *App) GET(path string, handler ...Handler) {
+	a.handle(path, handler, "GET")
+}
+
+func (a *App) PUT(path string, handler ...Handler) {
+	a.handle(path, handler, "PUT")
+}
+
+func (a *App) POST(path string, handler ...Handler) {
+	a.handle(path, handler, "POST")
+}
+
+func (a *App) PATCH(path string, handler ...Handler) {
 	a.handle(path, handler, "PATCH")
 }
 
-func (a *App) OPTIONS(path string, handler ...HandlerFunc) {
+func (a *App) OPTIONS(path string, handler ...Handler) {
 	a.handle(path, handler, "OPTIONS")
 }
 
-func (a *App) HEAD(path string, handler ...HandlerFunc) {
+func (a *App) HEAD(path string, handler ...Handler) {
 	a.handle(path, handler, "HEAD")
 }
 
-func (a *App) Any(path string, handler ...HandlerFunc) {
+func (a *App) Any(path string, handler ...Handler) {
 	a.handle(path, handler, "GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS", "HEAD")
 }
 
-// func (a *App) OnErrorCode()
+// <=== all allowed methods
 
 func (a *App) NotAllowed(c *Ctx) {
 	http.Error(c.Response, "405 Method not allowed", http.StatusMethodNotAllowed)
