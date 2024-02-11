@@ -21,7 +21,8 @@ type Route struct {
 }
 
 type App struct {
-	routes []*Route
+	routes           []*Route
+	globalMiddleware []HandlerFunc
 	// if an handler gets an error and  the a .OnErrorCode is called and the error code and the handler are passed as parameters to the a .OnErrorCode
 	onErrorCode ErrorHandlerFunc
 }
@@ -35,6 +36,7 @@ func (a *App) handle(pattern string, handlers []HandlerFunc, methods ...string) 
 	for _, method := range methods {
 		methodsMap[method] = true
 	}
+	handlers = append(a.globalMiddleware, handlers...) // Ajoutez cette ligne
 	route := &Route{pattern: pattern, handlers: handlers, methods: methodsMap}
 	a.routes = append(a.routes, route)
 }
@@ -96,7 +98,7 @@ func (a *App) NotAllowed(c *Ctx) {
 }
 
 func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	c := &Ctx{Response: w, Request: r, handlers: nil, index: 0, Values: map[any]any{}, Context: nil}
+	c := &Ctx{Response: w, Request: r, handlers: nil, index: 0, Values: map[any]any{}, Context: r.Context()}
 
 	for _, route := range a.routes {
 		if strings.HasSuffix(route.pattern, "*") {
