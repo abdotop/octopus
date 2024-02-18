@@ -20,15 +20,25 @@ type Route struct {
 	methods  map[string]bool
 }
 
+type subApp struct {
+	path string
+	app  *App
+}
+
 type App struct {
 	routes           []*Route
 	globalMiddleware []Handler
+	subAppRoutes     *[]subApp
 	// if an handler gets an error and  the a .OnErrorCode is called and the error code and the handler are passed as parameters to the a .OnErrorCode
 	onErrorCode ErrorHandler
 }
 
 func New() *App {
-	return &App{}
+	return &App{
+		subAppRoutes:     &[]subApp{},
+		routes:           []*Route{},
+		globalMiddleware: []Handler{},
+	}
 }
 
 func (a *App) handle(pattern string, handlers []Handler, methods ...string) {
@@ -42,10 +52,7 @@ func (a *App) handle(pattern string, handlers []Handler, methods ...string) {
 }
 
 func (a *App) Mount(path string, app *App) {
-	for _, route := range app.routes {
-		route.pattern = path + route.pattern
-		a.routes = append(a.routes, route)
-	}
+	*a.subAppRoutes = append(*a.subAppRoutes, subApp{path, app})
 }
 
 func (a *App) Static(path string, dir string) {
@@ -60,13 +67,23 @@ func (a *App) Use(handlers ...Handler) {
 }
 
 func (a *App) Group(path string, fn ...Handler) *App {
-	gApp := New()
+	app := New()
+	app.Use(fn...)
+	g := subApp{path, app}
+	*a.subAppRoutes = append(*a.subAppRoutes, g)
+	return app
+}
 
-	gApp.Use(fn...)
-
-	a.Mount(path, gApp)
-	
-	return gApp
+func (a *App) mountSubApp() {
+	for _, g := range *a.subAppRoutes {
+		if g.app.subAppRoutes != nil {
+			g.app.mountSubApp()
+		}
+		for _, route := range g.app.routes {
+			route.pattern = g.path + route.pattern
+			a.routes = append(a.routes, route)
+		}
+	}
 }
 
 // ===>  all allowed methods
@@ -157,6 +174,8 @@ func checkServer(addr string) {
 }
 
 func (a *App) Run(addr string) error {
+	a.mountSubApp()
+
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
