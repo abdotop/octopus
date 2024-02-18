@@ -59,13 +59,14 @@ func (a *App) Use(handlers ...Handler) {
 	a.globalMiddleware = append(a.globalMiddleware, handlers...)
 }
 
-func (a *App) Group(path string, fn ...func(*App)) *App {
-	app := New()
-	if len(fn) > 0 {
-		fn[0](app)
-	}
-	a.Mount(path, app)
-	return app
+func (a *App) Group(path string, fn ...Handler) *App {
+	gApp := New()
+
+	gApp.Use(fn...)
+
+	a.Mount(path, gApp)
+	
+	return gApp
 }
 
 // ===>  all allowed methods
