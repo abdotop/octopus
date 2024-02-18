@@ -59,6 +59,15 @@ func (a *App) Use(handlers ...Handler) {
 	a.globalMiddleware = append(a.globalMiddleware, handlers...)
 }
 
+func (a *App) Group(path string, fn ...func(*App)) *App {
+	app := New()
+	if len(fn) > 0 {
+		fn[0](app)
+	}
+	a.Mount(path, app)
+	return app
+}
+
 // ===>  all allowed methods
 
 func (a *App) DELETE(path string, handler ...Handler) {
