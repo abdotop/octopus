@@ -1,4 +1,6 @@
-![Octopus Logo](https://github.com/abdotop/octopus/blob/main/logo.png "Logo Title")
+<p align="center">
+  <img src="https://github.com/abdotop/octopus/blob/main/logo.png" alt="Octopus Logo" title="Logo Title">
+</p>
 
 ## Introduction
 
