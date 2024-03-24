@@ -1,4 +1,4 @@
-![Octopus Logo](https://github.com/abdotop/octopus/logo.png "Logo Title")
+![Octopus Logo](https://github.com/abdotop/octopus/blob/main/logo.png "Logo Title")
 
 ## Introduction
 
