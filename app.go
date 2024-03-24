@@ -8,163 +8,197 @@ import (
 	"strings"
 	"sync"
 	"time"
-	// _ "github.com/mattn/go-sqlite3"
 )
 
-type Handler func(*Ctx)
-type ErrorHandler func(*Ctx, int)
+type HandlerFunc func(*Ctx)
 
-type Route struct {
-	pattern  string
-	handlers []Handler
-	methods  map[string]bool
+type app struct {
+	sync.RWMutex
+	w      sync.WaitGroup
+	routes *routes
+
+	globalMiddleware []HandlerFunc
+	subApps          []*route
+	errorHandlers    map[statusCode]HandlerFunc
 }
 
-type subApp struct {
-	path string
-	app  *App
-}
-
-type App struct {
-	routes           []*Route
-	globalMiddleware []Handler
-	subAppRoutes     *[]subApp
-	// if an handler gets an error and  the a .OnErrorCode is called and the error code and the handler are passed as parameters to the a .OnErrorCode
-	onErrorCode ErrorHandler
-}
-
-func New() *App {
-	return &App{
-		subAppRoutes:     &[]subApp{},
-		routes:           []*Route{},
-		globalMiddleware: []Handler{},
+func New() *app {
+	return &app{
+		subApps:          make([]*route, 0),
+		routes:           new(routes),
+		errorHandlers:    make(map[statusCode]HandlerFunc),
+		w:                sync.WaitGroup{},
+		globalMiddleware: make([]HandlerFunc, 0),
 	}
 }
 
-func (a *App) handle(pattern string, handlers []Handler, methods ...string) {
-	methodsMap := make(map[string]bool)
+func (a *app) handle(pattern string, handlers []HandlerFunc, methods ...string) {
+	a.Lock()
+	defer a.Unlock()
 	for _, method := range methods {
-		methodsMap[method] = true
+		handlers = append(a.globalMiddleware, handlers...)
+		a.routes.add(pattern, method, handlers...)
 	}
-	handlers = append(a.globalMiddleware, handlers...) // Ajoutez cette ligne
-	route := &Route{pattern: pattern, handlers: handlers, methods: methodsMap}
-	a.routes = append(a.routes, route)
 }
 
-func (a *App) Mount(path string, app *App) {
-	*a.subAppRoutes = append(*a.subAppRoutes, subApp{path, app})
-}
+// func (a *app) Mount(path string, subApp *app) {
+// 	a.Lock()
+// 	defer a.Unlock()
 
-func (a *App) Static(path string, dir string) {
+// 	route := &route{
+// 		path: path,
+// 		a:    subApp,
+// 	}
+// 	a.subApps = append(a.subApps, route)
+// }
+
+func (a *app) Static(path string, dir string) {
 	fileServer := http.FileServer(http.Dir(dir))
-	a.GET(path+"*", func(c *Ctx) {
-		http.StripPrefix(path, fileServer).ServeHTTP(c.Response, c.Request)
+	a.Get(path+"*", func(c *Ctx) {
+		r, rok := c.Values.Get("request")
+		w, wok := c.Values.Get("response")
+		if rok && wok {
+			r := r.(*http.Request)
+			w := w.(http.ResponseWriter)
+			http.StripPrefix(path, fileServer).ServeHTTP(w, r)
+		}
 	})
 }
 
-func (a *App) Use(handlers ...Handler) {
+func (a *app) Use(handlers ...HandlerFunc) {
+	a.Lock()
+	defer a.Unlock()
 	a.globalMiddleware = append(a.globalMiddleware, handlers...)
 }
 
-func (a *App) Group(path string, fn ...Handler) *App {
-	app := New()
-	app.Use(fn...)
-	g := subApp{path, app}
-	*a.subAppRoutes = append(*a.subAppRoutes, g)
-	return app
+func (a *app) Group(path string, fn ...HandlerFunc) *route {
+	r := new(route)
+	r.globalMiddleware = fn
+	r.path = path
+	r.a = a
+	return r
 }
 
-func (a *App) mountSubApp() {
-	for _, g := range *a.subAppRoutes {
-		if g.app.subAppRoutes != nil {
-			g.app.mountSubApp()
-		}
-		for _, route := range g.app.routes {
-			route.pattern = g.path + route.pattern
-			a.routes = append(a.routes, route)
-		}
-	}
-}
+// func (a *app) mountSubApp() {
+// 	a.Lock()
+// 	defer a.Unlock()
+// 	for _, subApp := range a.subApps {
+// 		if subApp.a != nil {
+// 			subApp.a.mountSubApp()
+// 		}
+// 		app := subApp.a
+// 		p := subApp.path
+// 		app.routes.rrange(func(path string, route *route) bool {
+// 			for method, handlers := range route.data {
+// 				a.routes.add(p+path, method, handlers...)
+// 			}
+// 			return true
+// 		})
+// 	}
+// }
 
-// ===>  all allowed methods
-
-func (a *App) DELETE(path string, handler ...Handler) {
+func (a *app) DELETE(path string, handler ...HandlerFunc) {
 	a.handle(path, handler, "DELETE")
 }
 
-func (a *App) GET(path string, handler ...Handler) {
+func (a *app) Get(path string, handler ...HandlerFunc) {
 	a.handle(path, handler, "GET")
 }
 
-func (a *App) PUT(path string, handler ...Handler) {
+func (a *app) PUT(path string, handler ...HandlerFunc) {
 	a.handle(path, handler, "PUT")
 }
 
-func (a *App) POST(path string, handler ...Handler) {
+func (a *app) Post(path string, handler ...HandlerFunc) {
 	a.handle(path, handler, "POST")
 }
 
-func (a *App) PATCH(path string, handler ...Handler) {
+func (a *app) PATCH(path string, handler ...HandlerFunc) {
 	a.handle(path, handler, "PATCH")
 }
 
-func (a *App) OPTIONS(path string, handler ...Handler) {
+func (a *app) OPTIONS(path string, handler ...HandlerFunc) {
 	a.handle(path, handler, "OPTIONS")
 }
 
-func (a *App) HEAD(path string, handler ...Handler) {
+func (a *app) HEAD(path string, handler ...HandlerFunc) {
 	a.handle(path, handler, "HEAD")
 }
 
-func (a *App) Any(path string, handler ...Handler) {
+func (a *app) Any(path string, handler ...HandlerFunc) {
 	a.handle(path, handler, "GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS", "HEAD")
 }
 
-// <=== all allowed methods
-
-func (a *App) NotAllowed(c *Ctx) {
-	http.Error(c.Response, "405 Method not allowed", http.StatusMethodNotAllowed)
+func (a *app) OnErrorCode(code statusCode, f HandlerFunc) {
+	a.Lock()
+	defer a.Unlock()
+	a.errorHandlers[code] = f
 }
 
-func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	c := &Ctx{Response: w, Request: r, handlers: nil, index: 0, Values: map[any]any{}, Context: r.Context()}
+func (a *app) handleError(code statusCode, c *Ctx) {
+	a.RLock()
+	handler, exists := a.errorHandlers[code]
+	a.RUnlock()
+	if exists {
+		handler(c)
+	} else {
+		func(c *Ctx) {
+			message := statusMessages[code]
+			if code == StatusNotFound {
+				c.WriteString(string(message))
+			}
+		}(c)
+	}
+}
 
-	for _, route := range a.routes {
-		if strings.HasSuffix(route.pattern, "*") {
-			if strings.HasPrefix(r.URL.Path, strings.TrimSuffix(route.pattern, "*")) {
-				if route.methods[r.Method] {
-					c.handlers = route.handlers
+func (a *app) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	c := &Ctx{handlers: nil, index: 0, Values: new(value), Context: r.Context()}
+	c.Values.Set("request", r)
+	c.Values.Set("response", w)
+	c.Values.Set("app", a)
+
+	var routExist = false
+
+	a.routes.rrange(func(path string, route *route) bool {
+		hs, ok := route.methodExists(r.Method)
+		if strings.HasSuffix(path, "*") {
+			if strings.HasPrefix(r.URL.Path, strings.TrimSuffix(path, "*")) {
+				if ok {
+					c.handlers = hs
 					c.Next()
-					return
+					routExist = true
+					return false
 				} else {
-					a.NotAllowed(c)
-					return
+					c.Status(StatusMethodNotAllowed)
+					routExist = true
+					return false
 				}
 			}
 		} else {
-			if r.URL.Path == route.pattern {
-				if route.methods[r.Method] {
-					c.handlers = route.handlers
+			if path == r.URL.Path {
+				if ok {
+					c.handlers = hs
 					c.Next()
-					return
+					routExist = true
+					return false
 				} else {
-					a.NotAllowed(c)
-					return
+					c.Status(StatusMethodNotAllowed)
+					routExist = true
+					return false
 				}
 			}
 		}
-	}
-	if a.onErrorCode != nil {
-		a.onErrorCode(c, http.StatusNotFound)
-	} else {
-		http.NotFound(w, r)
+		return true
+	})
+
+	if !routExist {
+		c.Status(StatusNotFound)
 	}
 }
 
-var wg sync.WaitGroup
-
 func checkServer(addr string) {
 	resp, err := http.Get("http://" + addr)
+	log.Println("resp, err")
 	if err != nil {
 		log.Println("Server is not running")
 	} else {
@@ -173,12 +207,12 @@ func checkServer(addr string) {
 	}
 }
 
-func (a *App) Run(addr string) error {
-	a.mountSubApp()
+func (a *app) Run(addr string) error {
+	// a.mountSubApp()
 
-	wg.Add(1)
+	a.w.Add(1)
 	go func() {
-		defer wg.Done()
+		defer a.w.Done()
 		if err := http.ListenAndServe(addr, a); err != nil {
 			log.Fatal(err)
 		}
@@ -190,7 +224,7 @@ func (a *App) Run(addr string) error {
 	// Vérifier si le serveur est en cours d'exécution
 	checkServer(addr)
 
-	wg.Wait()
+	a.w.Wait()
 	return nil
 }
 

@@ -198,11 +198,15 @@ func (s *starter) Set(value uuid.UUID) error {
 		SameSite: c.SameSite,
 	}
 
-	http.SetCookie(s.Ctx.Response, cookie)
-	tmpdata.Store(id.String(), map[string]interface{}{
-		"key":    value,
-		"cookie": &storage{cookie: cookie, id: value},
-	})
+	w, wok := s.Ctx.Values.Get("response")
+	if wok {
+		w := w.(http.ResponseWriter)
+		http.SetCookie(w, cookie)
+		tmpdata.Store(id.String(), map[string]interface{}{
+			"key":    value,
+			"cookie": &storage{cookie: cookie, id: value},
+		})
+	}
 	Notif.Store(value, true)
 	return nil
 }
@@ -216,8 +220,14 @@ func (s *starter) Get() (uuid.UUID, error) {
 	db := session.database
 	tmpdata := session.data
 
+	r, rok := s.Ctx.Values.Get("request")
+	if !rok {
+		return uuid.Nil, fmt.Errorf("erreur lors de la récupération de la requête")
+	}
+
+	rr := r.(*http.Request)
 	// Récupérez le cookie
-	cookie, err := s.Ctx.Request.Cookie(c.CookieName)
+	cookie, err := rr.Cookie(c.CookieName)
 	if err != nil {
 		return uuid.Nil, fmt.Errorf("erreur lors de la récupération du cookie : %v", err)
 	}
@@ -269,7 +279,14 @@ func (s *starter) Valid() bool {
 	c := session.Config
 	db := session.database
 	tmpdata := session.data
-	cookie, err := s.Ctx.Request.Cookie(c.CookieName)
+
+	r, rok := s.Ctx.Values.Get("request")
+	if !rok {
+		return false
+	}
+
+	rr := r.(*http.Request)
+	cookie, err := rr.Cookie(c.CookieName)
 	if err != nil {
 		// Le cookie n'existe pas
 		return false
@@ -324,7 +341,14 @@ func (s *starter) Delete() error {
 	db := session.database
 	tmpdata := session.data
 	Ctx := s.Ctx
-	cookie, err := Ctx.Request.Cookie(c.CookieName)
+
+	r, rok := Ctx.Values.Get("request")
+	if !rok {
+		return fmt.Errorf("erreur lors de la récupération de la requête")
+	}
+
+	rr := r.(*http.Request)
+	cookie, err := rr.Cookie(c.CookieName)
 	if err != nil {
 		// Le cookie n'existe pas
 		return err
@@ -351,14 +375,19 @@ func (s *starter) Delete() error {
 			Notif.Store(userKey, false)
 		}
 	}
-	// Supprimez le cookie de la session
-	http.SetCookie(Ctx.Response, &http.Cookie{
-		Name:    c.CookieName,
-		Value:   "",
-		Secure:  c.Secure,
-		Expires: time.Unix(0, 0),
-		MaxAge:  -1,
-	})
+
+	w, wok := s.Ctx.Values.Get("response")
+	if wok {
+		w := w.(http.ResponseWriter)
+		// Supprimez le cookie de la session
+		http.SetCookie(w, &http.Cookie{
+			Name:    c.CookieName,
+			Value:   "",
+			Secure:  c.Secure,
+			Expires: time.Unix(0, 0),
+			MaxAge:  -1,
+		})
+	}
 
 	return nil
 }

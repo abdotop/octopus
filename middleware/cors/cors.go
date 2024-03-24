@@ -25,7 +25,7 @@ type Config struct {
 }
 
 // New returns a new CORS middleware.
-func New(config Config) octopus.Handler {
+func New(config Config) octopus.HandlerFunc {
 	// Defaults for config
 	if len(config.AllowedOrigins) == 0 {
 		config.AllowedOrigins = []string{"*"}
@@ -45,16 +45,23 @@ func New(config Config) octopus.Handler {
 
 	// return middleware octopus handler func with config
 	return func(c *octopus.Ctx) {
-		c.Response.Header().Set("Access-Control-Allow-Origin", strings.Join(config.AllowedOrigins, ","))
-		c.Response.Header().Set("Access-Control-Allow-Methods", strings.Join(config.AllowedMethods, ","))
-		c.Response.Header().Set("Access-Control-Allow-Headers", strings.Join(config.AllowedHeaders, ","))
-		c.Response.Header().Set("Access-Control-Allow-Credentials", strconv.FormatBool(config.AllowCredentials))
-		c.Response.Header().Set("Access-Control-Expose-Headers", strings.Join(config.ExposedHeaders, ","))
-		c.Response.Header().Set("Access-Control-Max-Age", strconv.Itoa(config.MaxAge))
-
-		if c.Request.Method == "OPTIONS" {
-			c.Response.WriteHeader(http.StatusOK)
-			return
+		w, ok := c.Values.Get("response")
+		if ok {
+			w := w.(http.ResponseWriter)
+			w.Header().Set("Access-Control-Allow-Origin", strings.Join(config.AllowedOrigins, ","))
+			w.Header().Set("Access-Control-Allow-Methods", strings.Join(config.AllowedMethods, ","))
+			w.Header().Set("Access-Control-Allow-Headers", strings.Join(config.AllowedHeaders, ","))
+			w.Header().Set("Access-Control-Allow-Credentials", strconv.FormatBool(config.AllowCredentials))
+			w.Header().Set("Access-Control-Expose-Headers", strings.Join(config.ExposedHeaders, ","))
+			w.Header().Set("Access-Control-Max-Age", strconv.Itoa(config.MaxAge))
+			r, ok := c.Values.Get("request")
+			if ok {
+				r := r.(*http.Request)
+				if r.Method == "OPTIONS" {
+					w.WriteHeader(http.StatusOK)
+					return
+				}
+			}
 		}
 
 		c.Next()

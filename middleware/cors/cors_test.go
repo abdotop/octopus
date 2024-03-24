@@ -20,7 +20,7 @@ func TestCORSMiddleware(t *testing.T) {
 		MaxAge:           86400,
 	}))
 
-	app.GET("/test", func(c *octopus.Ctx) {})
+	app.Get("/test", func(c *octopus.Ctx) {})
 
 	req, err := http.NewRequest("GET", "http://localhost:8888/test", nil)
 	if err != nil {
