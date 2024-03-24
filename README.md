@@ -1,4 +1,4 @@
-# Octopus
+![Octopus Logo](https://github.com/abdotop/octopus/logo.png "Logo Title")
 
 ## Introduction
 
@@ -9,7 +9,12 @@ Octopus is a lightweight, efficient web framework designed for building scalable
 - Easy routing
 - Middleware support
 - Template engine integration
-- Database integration
 - Security features
 
 ## Installation
+
+You can install the Octopus package with the `go get` command:
+
+```bash
+go get github.com/abdotop/octopus
+```
