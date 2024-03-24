@@ -198,7 +198,6 @@ func (a *app) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 func checkServer(addr string) {
 	resp, err := http.Get("http://" + addr)
-	log.Println("resp, err")
 	if err != nil {
 		log.Println("Server is not running")
 	} else {
