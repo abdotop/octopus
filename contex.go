@@ -6,9 +6,11 @@ import (
 	"errors"
 	"html/template"
 	"net/http"
+	"sync"
 )
 
 type Ctx struct {
+	sync.RWMutex
 	handlers []HandlerFunc
 	index    int
 	Values   *value
@@ -27,6 +29,8 @@ func NewCtx() *Ctx {
 type Map = map[string]interface{}
 
 func (c *Ctx) BodyParser(out interface{}) error {
+	c.RLock()
+	defer c.RUnlock()
 	r, ok := c.Values.Get("request")
 	if ok {
 		r := r.(*http.Request)
@@ -37,6 +41,8 @@ func (c *Ctx) BodyParser(out interface{}) error {
 
 // Get returns the value of the key in the context header
 func (c *Ctx) Get(key string) string {
+	c.RLock()
+	defer c.RUnlock()
 	r, ok := c.Values.Get("request")
 	if ok {
 		r := r.(*http.Request)
@@ -46,6 +52,8 @@ func (c *Ctx) Get(key string) string {
 }
 
 func (c *Ctx) JSON(data interface{}) error {
+	c.Lock()
+	defer c.Unlock()
 	r, ok := c.Values.Get("response")
 	if ok {
 		r := r.(http.ResponseWriter)
@@ -64,6 +72,8 @@ func (c *Ctx) Next() {
 }
 
 func (c *Ctx) Query(key string) string {
+	c.RLock()
+	defer c.RUnlock()
 	r, ok := c.Values.Get("request")
 	if ok {
 		r := r.(*http.Request)
@@ -73,6 +83,8 @@ func (c *Ctx) Query(key string) string {
 }
 
 func (c *Ctx) Render(path string, data interface{}) error {
+	c.Lock()
+	defer c.Unlock()
 	r, ok := c.Values.Get("response")
 	if ok {
 		r := r.(http.ResponseWriter)
@@ -86,6 +98,8 @@ func (c *Ctx) Render(path string, data interface{}) error {
 }
 
 func (c *Ctx) SendString(code statusCode, s string) error {
+	c.Lock()
+	defer c.Unlock()
 	r, ok := c.Values.Get("response")
 	if ok {
 		c.Status(code)
@@ -97,6 +111,8 @@ func (c *Ctx) SendString(code statusCode, s string) error {
 }
 
 func (c *Ctx) Status(code statusCode) *Ctx {
+	c.Lock()
+	defer c.Unlock()
 	r, ok := c.Values.Get("response")
 	a, appExist := c.Values.Get("app")
 	if ok {
@@ -114,6 +130,8 @@ func (c *Ctx) Status(code statusCode) *Ctx {
 }
 
 func (c *Ctx) WriteString(s string) error {
+	c.Lock()
+	defer c.Unlock()
 	r, ok := c.Values.Get("response")
 	if ok {
 		r := r.(http.ResponseWriter)
