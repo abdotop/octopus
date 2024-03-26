@@ -1,6 +1,8 @@
 package octopus
 
-import "sync"
+import (
+	"sync"
+)
 
 type routes struct {
 	sync.RWMutex
@@ -71,22 +73,32 @@ func (r *route) PUT(path string, handlers ...HandlerFunc) {
 	r.a.PUT(r.path+path, handlers...)
 }
 
-// func (a *route) Post(path string, handler ...HandlerFunc) {
-// 	a.handle(path, handler, "POST")
-// }
+func (r *route) Post(path string, handlers ...HandlerFunc) {
+	handlers = append(r.globalMiddleware, handlers...)
+	r.a.Post(r.path+path, handlers...)
+}
 
-// func (a *route) PATCH(path string, handler ...HandlerFunc) {
-// 	a.handle(path, handler, "PATCH")
-// }
+func (r *route) PATCH(path string, handlers ...HandlerFunc) {
+	handlers = append(r.globalMiddleware, handlers...)
+	r.a.PATCH(r.path+path, handlers...)
+}
 
-// func (a *route) OPTIONS(path string, handler ...HandlerFunc) {
-// 	a.handle(path, handler, "OPTIONS")
-// }
+func (r *route) OPTIONS(path string, handlers ...HandlerFunc) {
+	handlers = append(r.globalMiddleware, handlers...)
+	r.a.OPTIONS(r.path+path, handlers...)
+}
 
-// func (a *route) HEAD(path string, handler ...HandlerFunc) {
-// 	a.handle(path, handler, "HEAD")
-// }
+func (r *route) HEAD(path string, handlers ...HandlerFunc) {
+	handlers = append(r.globalMiddleware, handlers...)
+	r.a.HEAD(r.path+path, handlers...)
+}
 
-// func (a *route) Any(path string, handler ...HandlerFunc) {
-// 	a.handle(path, handler, "GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS", "HEAD")
-// }
+func (r *route) Any(path string, handlers ...HandlerFunc) {
+	handlers = append(r.globalMiddleware, handlers...)
+	r.a.Any(r.path+path, handlers...)
+}
+
+func (r *route) Method(method string, path string, handlers ...HandlerFunc) {
+	handlers = append(r.globalMiddleware, handlers...)
+	r.a.Method(method, r.path+path, handlers...)
+}

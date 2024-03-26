@@ -129,6 +129,11 @@ func (a *app) Any(path string, handler ...HandlerFunc) {
 	a.handle(path, handler, "GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS", "HEAD")
 }
 
+func (a *app) Method(method string, path string, handler ...HandlerFunc) {
+	methods := strings.Split(method, " ")
+	a.handle(path, handler, methods...)
+}
+
 func (a *app) OnErrorCode(code statusCode, f HandlerFunc) {
 	a.Lock()
 	defer a.Unlock()
