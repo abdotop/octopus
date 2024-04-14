@@ -6,11 +6,10 @@ import (
 	"errors"
 	"html/template"
 	"net/http"
-	"sync"
 )
 
 type Ctx struct {
-	sync.RWMutex
+	// sync.RWMutex
 	handlers []HandlerFunc
 	index    int
 	Values   *value
