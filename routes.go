@@ -12,7 +12,7 @@ type routes struct {
 type route struct {
 	sync.RWMutex
 	data             map[string][]HandlerFunc
-	a                *app
+	a                *App
 	globalMiddleware []HandlerFunc
 	path             string
 }

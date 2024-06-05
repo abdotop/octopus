@@ -118,7 +118,7 @@ func (c *Ctx) Status(code statusCode) *Ctx {
 		r := r.(http.ResponseWriter)
 		r.WriteHeader(int(code))
 		if appExist {
-			a := a.(*app)
+			a := a.(*App)
 			a.handleError(code, c)
 		} else {
 			a := New()

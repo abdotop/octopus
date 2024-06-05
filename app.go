@@ -12,7 +12,7 @@ import (
 
 type HandlerFunc func(*Ctx)
 
-type app struct {
+type App struct {
 	sync.RWMutex
 	w      sync.WaitGroup
 	routes *routes
@@ -22,8 +22,8 @@ type app struct {
 	errorHandlers    map[statusCode]HandlerFunc
 }
 
-func New() *app {
-	return &app{
+func New() *App {
+	return &App{
 		subApps:          make([]*route, 0),
 		routes:           new(routes),
 		errorHandlers:    make(map[statusCode]HandlerFunc),
@@ -32,7 +32,7 @@ func New() *app {
 	}
 }
 
-func (a *app) handle(pattern string, handlers []HandlerFunc, methods ...string) {
+func (a *App) handle(pattern string, handlers []HandlerFunc, methods ...string) {
 	a.Lock()
 	defer a.Unlock()
 	for _, method := range methods {
@@ -52,7 +52,7 @@ func (a *app) handle(pattern string, handlers []HandlerFunc, methods ...string) 
 // 	a.subApps = append(a.subApps, route)
 // }
 
-func (a *app) Static(path string, dir string) {
+func (a *App) Static(path string, dir string) {
 	fileServer := http.FileServer(http.Dir(dir))
 	a.Get(path+"*", func(c *Ctx) {
 		r, rok := c.Values.Get("request")
@@ -65,13 +65,13 @@ func (a *app) Static(path string, dir string) {
 	})
 }
 
-func (a *app) Use(handlers ...HandlerFunc) {
+func (a *App) Use(handlers ...HandlerFunc) {
 	a.Lock()
 	defer a.Unlock()
 	a.globalMiddleware = append(a.globalMiddleware, handlers...)
 }
 
-func (a *app) Group(path string, fn ...HandlerFunc) *route {
+func (a *App) Group(path string, fn ...HandlerFunc) *route {
 	r := new(route)
 	r.globalMiddleware = fn
 	r.path = path
@@ -97,50 +97,50 @@ func (a *app) Group(path string, fn ...HandlerFunc) *route {
 // 	}
 // }
 
-func (a *app) DELETE(path string, handler ...HandlerFunc) {
+func (a *App) DELETE(path string, handler ...HandlerFunc) {
 	a.handle(path, handler, "DELETE")
 }
 
-func (a *app) Get(path string, handler ...HandlerFunc) {
+func (a *App) Get(path string, handler ...HandlerFunc) {
 	a.handle(path, handler, "GET")
 }
 
-func (a *app) PUT(path string, handler ...HandlerFunc) {
+func (a *App) PUT(path string, handler ...HandlerFunc) {
 	a.handle(path, handler, "PUT")
 }
 
-func (a *app) Post(path string, handler ...HandlerFunc) {
+func (a *App) Post(path string, handler ...HandlerFunc) {
 	a.handle(path, handler, "POST")
 }
 
-func (a *app) PATCH(path string, handler ...HandlerFunc) {
+func (a *App) PATCH(path string, handler ...HandlerFunc) {
 	a.handle(path, handler, "PATCH")
 }
 
-func (a *app) OPTIONS(path string, handler ...HandlerFunc) {
+func (a *App) OPTIONS(path string, handler ...HandlerFunc) {
 	a.handle(path, handler, "OPTIONS")
 }
 
-func (a *app) HEAD(path string, handler ...HandlerFunc) {
+func (a *App) HEAD(path string, handler ...HandlerFunc) {
 	a.handle(path, handler, "HEAD")
 }
 
-func (a *app) Any(path string, handler ...HandlerFunc) {
+func (a *App) Any(path string, handler ...HandlerFunc) {
 	a.handle(path, handler, "GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS", "HEAD")
 }
 
-func (a *app) Method(method string, path string, handler ...HandlerFunc) {
+func (a *App) Method(method string, path string, handler ...HandlerFunc) {
 	methods := strings.Split(method, " ")
 	a.handle(path, handler, methods...)
 }
 
-func (a *app) OnErrorCode(code statusCode, f HandlerFunc) {
+func (a *App) OnErrorCode(code statusCode, f HandlerFunc) {
 	a.Lock()
 	defer a.Unlock()
 	a.errorHandlers[code] = f
 }
 
-func (a *app) handleError(code statusCode, c *Ctx) {
+func (a *App) handleError(code statusCode, c *Ctx) {
 	a.RLock()
 	handler, exists := a.errorHandlers[code]
 	a.RUnlock()
@@ -156,7 +156,7 @@ func (a *app) handleError(code statusCode, c *Ctx) {
 	}
 }
 
-func (a *app) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	c := &Ctx{handlers: nil, index: 0, Values: new(value), Context: r.Context()}
 	c.Values.Set("request", r)
 	c.Values.Set("response", w)
@@ -211,7 +211,7 @@ func checkServer(addr string) {
 	}
 }
 
-func (a *app) Run(addr string) error {
+func (a *App) Run(addr string) error {
 	// a.mountSubApp()
 
 	a.w.Add(1)
