@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"html/template"
+	"net"
 	"net/http"
 )
 
@@ -126,6 +127,21 @@ func (c *Ctx) Status(code statusCode) *Ctx {
 		}
 	}
 	return c
+}
+
+func (c *Ctx) RemoteIP() (string, error) {
+	r, ok := c.Values.Get("request")
+	if !ok {
+		return "", errors.New("request not found in context")
+	}
+
+	req := r.(*http.Request)
+	host, _, err := net.SplitHostPort(req.RemoteAddr)
+	if err != nil {
+		return "", err
+	}
+
+	return host, nil
 }
 
 func (c *Ctx) WriteString(s string) error {
