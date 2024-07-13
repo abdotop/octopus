@@ -136,12 +136,40 @@ func (c *Ctx) RemoteIP() (string, error) {
 	}
 
 	req := r.(*http.Request)
-	host, _, err := net.SplitHostPort(req.RemoteAddr)
-	if err != nil {
-		return "", err
-	}
+	ips := extractValidIPsFromHeader(req, "X-Forwarded-For")
+   	 if len(ips) > 0 {
+        	return ips[0], nil // retourne la première IP valide
+    	 }
+
+   	 // Fallback sur l'adresse IP directe
+   	 ip, _, _ := net.SplitHostPort(req.RemoteAddr)
+   	 return ip, nil
 
 	return host, nil
+}
+// extractValidIPsFromHeader extrait et valide les adresses IP à partir d'un en-tête HTTP spécifié.
+func extractValidIPsFromHeader(r *http.Request, headerName string) []string {
+    headerValue := r.Header.Get(headerName)
+    if headerValue == "" {
+        return nil
+    }
+
+    ips := strings.Split(headerValue, ",")
+    validIPs := make([]string, 0, len(ips))
+
+    for _, ip := range ips {
+        trimmedIP := strings.TrimSpace(ip)
+        if isValidIP(trimmedIP) {
+            validIPs = append(validIPs, trimmedIP)
+        }
+    }
+
+    return validIPs
+}
+
+// isValidIP vérifie si une chaîne est une adresse IP valide.
+func isValidIP(ip string) bool {
+    return net.ParseIP(ip) != nil
 }
 
 func (c *Ctx) WriteString(s string) error {
