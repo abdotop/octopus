@@ -145,8 +145,6 @@ func (c *Ctx) RemoteIP() (string, error) {
    	 // Fallback sur l'adresse IP directe
    	 ip, _, _ := net.SplitHostPort(req.RemoteAddr)
    	 return ip, nil
-
-	return host, nil
 }
 // extractValidIPsFromHeader extrait et valide les adresses IP à partir d'un en-tête HTTP spécifié.
 func extractValidIPsFromHeader(r *http.Request, headerName string) []string {
