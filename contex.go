@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"html/template"
 	"net"
 	"net/http"
@@ -16,6 +17,7 @@ type Ctx struct {
 	index    int
 	Values   *value
 	Context  context.Context
+	// sse      *sse
 }
 
 func NewCtx() *Ctx {
@@ -29,10 +31,22 @@ func NewCtx() *Ctx {
 
 type Map = map[string]interface{}
 
-func (c *Ctx) BodyParser(out interface{}) error {
+func (ctx *Ctx) AppStore() (*value, error) {
+	app_value, ok := ctx.Values.Get("app")
+	if !ok {
+		return nil, fmt.Errorf("failed to get App from context")
+	}
+	app, ok := app_value.(*App)
+	if !ok {
+		return nil, fmt.Errorf("failed to get App from context")
+	}
+	return app.Store, nil
+}
+
+func (ctx *Ctx) BodyParser(out interface{}) error {
 	// c.RLock()
 	// defer c.RUnlock()
-	r, ok := c.Values.Get("request")
+	r, ok := ctx.Values.Get("request")
 	if ok {
 		r := r.(*http.Request)
 		return json.NewDecoder(r.Body).Decode(&out)
@@ -41,10 +55,10 @@ func (c *Ctx) BodyParser(out interface{}) error {
 }
 
 // Get returns the value of the key in the context header
-func (c *Ctx) Get(key string) string {
+func (ctx *Ctx) Get(key string) string {
 	// c.RLock()
 	// defer c.RUnlock()
-	r, ok := c.Values.Get("request")
+	r, ok := ctx.Values.Get("request")
 	if ok {
 		r := r.(*http.Request)
 		return r.Header.Get(key)
@@ -52,10 +66,22 @@ func (c *Ctx) Get(key string) string {
 	return ""
 }
 
-func (c *Ctx) JSON(data interface{}) error {
+// func (c *Ctx) GetSse() (*sse, error) {
+// 	app_value, ok := c.Values.Get("app")
+// 	if !ok {
+// 		return nil, fmt.Errorf("failed to get App from context")
+// 	}
+// 	app, ok := app_value.(*App)
+// 	if !ok {
+// 		return nil, fmt.Errorf("failed to get App from context")
+// 	}
+// 	return app.sse_service, nil
+// }
+
+func (ctx *Ctx) JSON(data interface{}) error {
 	// c.Lock()
 	// defer c.Unlock()
-	r, ok := c.Values.Get("response")
+	r, ok := ctx.Values.Get("response")
 	if ok {
 		r := r.(http.ResponseWriter)
 		r.Header().Set("Content-Type", "application/json")
@@ -64,18 +90,18 @@ func (c *Ctx) JSON(data interface{}) error {
 	return errors.New("response not found in context values")
 }
 
-func (c *Ctx) Next() {
-	if c.index < len(c.handlers) {
-		handler := c.handlers[c.index]
-		c.index++
-		handler(c)
+func (ctx *Ctx) Next() {
+	if ctx.index < len(ctx.handlers) {
+		handler := ctx.handlers[ctx.index]
+		ctx.index++
+		handler(ctx)
 	}
 }
 
-func (c *Ctx) Query(key string) string {
+func (ctx *Ctx) Query(key string) string {
 	// c.RLock()
 	// defer c.RUnlock()
-	r, ok := c.Values.Get("request")
+	r, ok := ctx.Values.Get("request")
 	if ok {
 		r := r.(*http.Request)
 		return r.URL.Query().Get(key)
@@ -83,10 +109,10 @@ func (c *Ctx) Query(key string) string {
 	return ""
 }
 
-func (c *Ctx) Render(path string, data interface{}) error {
+func (ctx *Ctx) Render(path string, data interface{}) error {
 	// c.Lock()
 	// defer c.Unlock()
-	r, ok := c.Values.Get("response")
+	r, ok := ctx.Values.Get("response")
 	if ok {
 		r := r.(http.ResponseWriter)
 		tp, err := template.ParseFiles(path)
@@ -98,12 +124,12 @@ func (c *Ctx) Render(path string, data interface{}) error {
 	return errors.New("response not found in context values")
 }
 
-func (c *Ctx) SendString(code statusCode, s string) error {
+func (ctx *Ctx) SendString(code statusCode, s string) error {
 	// c.Lock()
 	// defer c.Unlock()
-	r, ok := c.Values.Get("response")
+	r, ok := ctx.Values.Get("response")
 	if ok {
-		c.Status(code)
+		ctx.Status(code)
 		r := r.(http.ResponseWriter)
 		_, err := r.Write([]byte(s))
 		return err
@@ -111,70 +137,89 @@ func (c *Ctx) SendString(code statusCode, s string) error {
 	return errors.New("response not found in context values")
 }
 
-func (c *Ctx) Status(code statusCode) *Ctx {
+func (ctx *Ctx) Status(code statusCode) *Ctx {
 	// c.RLock()
 	// defer c.RUnlock()
-	r, ok := c.Values.Get("response")
-	a, appExist := c.Values.Get("app")
+	r, ok := ctx.Values.Get("response")
+	a, appExist := ctx.Values.Get("app")
 	if ok {
 		r := r.(http.ResponseWriter)
 		r.WriteHeader(int(code))
 		if appExist {
 			a := a.(*App)
-			a.handleError(code, c)
+			a.handleError(code, ctx)
 		} else {
 			a := New()
-			a.handleError(code, c)
+			a.handleError(code, ctx)
 		}
 	}
-	return c
+	return ctx
 }
 
-func (c *Ctx) RemoteIP() (string, error) {
-	r, ok := c.Values.Get("request")
+func (ctx *Ctx) RemoteIP() (string, error) {
+	r, ok := ctx.Values.Get("request")
 	if !ok {
 		return "", errors.New("request not found in context")
 	}
 
 	req := r.(*http.Request)
 	ips := extractValidIPsFromHeader(req, "X-Forwarded-For")
-   	 if len(ips) > 0 {
-        	return ips[0], nil // retourne la première IP valide
-    	 }
+	if len(ips) > 0 {
+		return ips[0], nil // retourne la première IP valide
+	}
 
-   	 // Fallback sur l'adresse IP directe
-   	 ip, _, _ := net.SplitHostPort(req.RemoteAddr)
-   	 return ip, nil
+	// Fallback sur l'adresse IP directe
+	ip, _, _ := net.SplitHostPort(req.RemoteAddr)
+	return ip, nil
 }
+
 // extractValidIPsFromHeader extrait et valide les adresses IP à partir d'un en-tête HTTP spécifié.
 func extractValidIPsFromHeader(r *http.Request, headerName string) []string {
-    headerValue := r.Header.Get(headerName)
-    if headerValue == "" {
-        return nil
-    }
+	headerValue := r.Header.Get(headerName)
+	if headerValue == "" {
+		return nil
+	}
 
-    ips := strings.Split(headerValue, ",")
-    validIPs := make([]string, 0, len(ips))
+	ips := strings.Split(headerValue, ",")
+	validIPs := make([]string, 0, len(ips))
 
-    for _, ip := range ips {
-        trimmedIP := strings.TrimSpace(ip)
-        if isValidIP(trimmedIP) {
-            validIPs = append(validIPs, trimmedIP)
-        }
-    }
+	for _, ip := range ips {
+		trimmedIP := strings.TrimSpace(ip)
+		if isValidIP(trimmedIP) {
+			validIPs = append(validIPs, trimmedIP)
+		}
+	}
 
-    return validIPs
+	return validIPs
 }
 
 // isValidIP vérifie si une chaîne est une adresse IP valide.
 func isValidIP(ip string) bool {
-    return net.ParseIP(ip) != nil
+	return net.ParseIP(ip) != nil
 }
 
-func (c *Ctx) WriteString(s string) error {
+// func (c *Ctx) GetSseConnection(id string) (*sseConn, error) {
+// 	app_value, ok := c.Values.Get("app")
+
+// 	if !ok {
+// 		return nil, fmt.Errorf("failed to retrieve app from context")
+// 	}
+// 	app, ok := app_value.(*App)
+// 	if !ok {
+// 		return nil, fmt.Errorf("failed to retrieve app from context")
+// 	}
+// 	conn, ok := app.getConnection(id)
+// 	if !ok {
+// 		return nil, fmt.Errorf("no connection found with ID %s", id)
+// 	}
+
+// 	return conn, nil
+// }
+
+func (ctx *Ctx) WriteString(s string) error {
 	// c.RLock()
 	// defer c.RUnlock()
-	r, ok := c.Values.Get("response")
+	r, ok := ctx.Values.Get("response")
 	if ok {
 		r := r.(http.ResponseWriter)
 		_, err := r.Write([]byte(s))
