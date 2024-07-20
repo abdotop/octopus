@@ -21,37 +21,7 @@ type App struct {
 	subApps          []*route
 	errorHandlers    map[statusCode]HandlerFunc
 	Store            *value
-	// sse_service      *sse
 }
-
-// // for sse
-// func (a *App) addConnection(conn *sseConn, id string) {
-// 	a.sse_mu.Lock()
-// 	a.connections[id] = conn
-// 	a.sse_mu.Unlock()
-
-// 	// Démarrer un goroutine qui attend la fermeture de la connexion
-// 	go func() {
-// 		<-conn.CloseCh         // Attendre que le canal soit fermé
-// 		a.removeConnection(id) // Supprimer la connexion de la map
-// 	}()
-// }
-
-// func (a *App) getConnection(id string) (*sseConn, bool) {
-// 	a.sse_mu.Lock()
-// 	defer a.sse_mu.Unlock()
-// 	conn, ok := a.connections[id]
-// 	return conn, ok
-// }
-
-// func (a *App) removeConnection(id string) {
-// 	a.sse_mu.Lock()
-// 	defer a.sse_mu.Unlock()
-// 	if conn, ok := a.connections[id]; ok {
-// 		conn.Close()
-// 		delete(a.connections, id)
-// 	}
-// }
 
 func New() *App {
 	return &App{
@@ -61,7 +31,6 @@ func New() *App {
 		w:                sync.WaitGroup{},
 		globalMiddleware: make([]HandlerFunc, 0),
 		Store:            new(value),
-		// sse_service:      newSSE(),
 	}
 }
 
@@ -111,28 +80,6 @@ func (a *App) Group(path string, fn ...HandlerFunc) *route {
 	r.a = a
 	return r
 }
-
-// func (a *App) GetSseApp() *sse {
-// 	return a.sse_service
-// }
-
-// func (a *app) mountSubApp() {
-// 	a.Lock()
-// 	defer a.Unlock()
-// 	for _, subApp := range a.subApps {
-// 		if subApp.a != nil {
-// 			subApp.a.mountSubApp()
-// 		}
-// 		app := subApp.a
-// 		p := subApp.path
-// 		app.routes.rrange(func(path string, route *route) bool {
-// 			for method, handlers := range route.data {
-// 				a.routes.add(p+path, method, handlers...)
-// 			}
-// 			return true
-// 		})
-// 	}
-// }
 
 func (a *App) DELETE(path string, handler ...HandlerFunc) {
 	a.handle(path, handler, "DELETE")
